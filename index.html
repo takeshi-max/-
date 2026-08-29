@@ -23,6 +23,7 @@
     input[type="range"] { width: 100%; margin: 8px 0 18px 0; cursor: pointer; }
     optgroup { font-style: normal; font-weight: bold; color: #e64a19; }
     .status-area { font-size: 10px; color: #bcaaa4; text-align: center; margin-top: 10px; min-height: 1.2em; }
+    .refresh-voice { background: #eee; color: #666; font-size: 10px; padding: 4px 8px; border-radius: 8px; border: none; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -33,7 +34,7 @@
     <label>Google APIキー</label>
     <input type="password" id="apiKey" placeholder="キーを貼り付け" />
 
-    <label>シチュエーション（どこでやる？）</label>
+    <label>シチュエーション</label>
     <select id="situation">
       <optgroup label="パーティー・飲み会">
         <option value="忘年会・新年会">忘年会・新年会</option>
@@ -70,7 +71,10 @@
       <div id="gagLines" class="lines-box"></div>
 
       <div class="setting-group">
-        <label style="margin-top:0; color:#d84315;">🗣 声の選択</label>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="margin:0; color:#d84315;">🗣 声の選択</label>
+            <button class="refresh-voice" onclick="populateVoiceList()">🔄 リスト更新</button>
+        </div>
         <select id="voiceSelect" style="padding:10px; font-size:14px; margin-bottom:15px;"></select>
 
         <div class="slider-label"><span>🐢 話すスピード</span><span id="speedVal">1.2</span></div>
@@ -85,27 +89,26 @@
   </div>
 
   <script>
+    // 保存されたキーとモデルの読み込み
     document.getElementById('apiKey').value = localStorage.getItem('gemini_api_key') || '';
     let currentText = '';
     let voices = [];
 
-    // 音声リスト取得
+    // iPhone用：声のリスト取得
     function populateVoiceList() {
       voices = window.speechSynthesis.getVoices();
-      const voiceSelect = document.getElementById('voiceSelect');
-      if (!voiceSelect) return;
-      voiceSelect.innerHTML = '';
+      const select = document.getElementById('voiceSelect');
+      if (!select) return;
+      select.innerHTML = '';
       const jpVoices = voices.filter(v => v.lang.includes('ja'));
       if (jpVoices.length === 0) {
-        const option = document.createElement('option');
-        option.textContent = "標準ボイス";
-        voiceSelect.appendChild(option);
+        select.innerHTML = '<option>標準ボイス</option>';
       } else {
-        jpVoices.forEach(voice => {
-          const option = document.createElement('option');
-          option.textContent = voice.name;
-          option.setAttribute('data-name', voice.name);
-          voiceSelect.appendChild(option);
+        jpVoices.forEach(v => {
+          const opt = document.createElement('option');
+          opt.textContent = v.name.replace('Samantha','').replace('Compact','(標準)');
+          opt.value = v.name;
+          select.appendChild(opt);
         });
       }
     }
@@ -124,23 +127,18 @@
       btn.disabled = true;
       btn.textContent = "AI思考中...";
       resBox.style.display = "none";
-      status.textContent = "最適なモデルを探索しています...";
+      status.textContent = "最適なモデルを探しています...";
 
       try {
         const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
         const mData = await mRes.json();
-        if(!mRes.ok) throw new Error("通信失敗");
+        if(!mRes.ok) throw new Error("APIエラー");
 
-        let models = mData.models
+        const models = mData.models
           .filter(m => m.supportedGenerationMethods.includes("generateContent"))
           .sort((a, b) => b.name.localeCompare(a.name));
 
-        const lastModel = localStorage.getItem('last_working_model');
-        if (lastModel) {
-          models = [ {name: lastModel}, ...models.filter(m => m.name !== lastModel) ];
-        }
-
-        const prompt = `一発ギャグを1つ作って。以下のJSON形式でのみ答えて。{"title":"題名","action":"動き","lines":"台詞"}\n条件: シチュエーション「${document.getElementById('situation').value}」、お題「${document.getElementById('keyword').value || 'なし'}」`;
+        const prompt = `あなたはプロのお笑い芸人です。シチュエーション「${document.getElementById('situation').value}」、お題「${document.getElementById('keyword').value || 'なし'}」で一発ギャグを1つ作って。必ず以下のJSON形式でのみ答えて。{"title":"題名","action":"動き","lines":"台詞"}`;
 
         let success = false;
         for (const m of models) {
@@ -150,44 +148,35 @@
             const response = await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" }
-              })
+              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
             });
             const data = await response.json();
             if (response.ok) {
-              const gag = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim());
+              const text = data.candidates[0].content.parts[0].text;
+              const gag = JSON.parse(text.replace(/```json|```/g, "").trim());
               currentText = gag.lines;
               document.getElementById('gagTitle').textContent = `「 ${gag.title} 」`;
               document.getElementById('gagAction').textContent = `やり方: ${gag.action}`;
               document.getElementById('gagLines').textContent = `『 ${gag.lines} 』`;
               resBox.style.display = "block";
               status.textContent = "成功しました！";
-              localStorage.setItem('last_working_model', m.name);
               success = true;
               break;
             }
           } catch (e) { continue; }
         }
         if (!success) alert("制限がかかっています。時間を置いてください。");
-      } catch (e) {
-        alert("エラーが発生しました。");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "ギャグを爆誕させる！";
-      }
+      } catch (e) { alert("エラーが発生しました。"); }
+      finally { btn.disabled = false; btn.textContent = "ギャグを爆誕させる！"; }
     }
 
     function speak() {
       if(!currentText) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(currentText);
-      const voiceSelect = document.getElementById('voiceSelect');
-      const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
-      if (selectedVoiceName) {
-        u.voice = voices.find(v => v.name === selectedVoiceName);
-      }
+      const vName = document.getElementById('voiceSelect').value;
+      const v = voices.find(v => v.name === vName);
+      if(v) u.voice = v;
       u.lang = 'ja-JP';
       u.rate = parseFloat(document.getElementById('rateRange').value);
       u.pitch = parseFloat(document.getElementById('pitchRange').value);
