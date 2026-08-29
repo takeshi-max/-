@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI一発ギャグMaker 🎤 究極完全版</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff8e1; margin: 0; padding: 20px; color: #2c3e50; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff8e1; margin: 0; padding: 20px; color: #2c3e50; -webkit-tap-highlight-color: transparent; }
     .card { background: white; padding: 24px; border-radius: 24px; box-shadow: 0 12px 30px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; border: 4px solid #ffccbc; }
     h1 { font-size: 24px; text-align: center; color: #e64a19; margin-bottom: 20px; }
     label { font-size: 13px; font-weight: bold; color: #8d6e63; display: block; margin-top: 15px; margin-bottom: 5px; }
-    input, select { width: 100%; padding: 14px; margin-bottom: 10px; border-radius: 14px; border: 2px solid #ffccbc; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.2s; background: #fff; }
+    input, select { width: 100%; padding: 14px; margin-bottom: 10px; border-radius: 14px; border: 2px solid #ffccbc; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.2s; background: #fff; appearance: none; }
     input:focus, select:focus { border-color: #e64a19; }
     button { width: 100%; padding: 18px; background: #ff7043; color: white; border: none; border-radius: 16px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #d84315; transition: 0.1s; margin-top: 10px; }
     button:active { transform: translateY(4px); box-shadow: none; }
@@ -18,9 +18,11 @@
     @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .lines-box { font-size: 26px; font-weight: bold; text-align: center; color: #bf360c; padding: 20px; background: #ffe0b2; border-radius: 14px; margin: 15px 0; line-height: 1.4; }
     .speaker-btn { background: #039be5; box-shadow: 0 5px 0 #01579b; font-size: 18px; }
-    .status-area { font-size: 11px; color: #bcaaa4; text-align: center; margin-top: 15px; min-height: 1.2em; }
-    .voice-settings { background: #fbe9e7; padding: 12px; border-radius: 16px; margin: 15px 0; border: 1px solid #ffccbc; }
+    .setting-group { background: #fbe9e7; padding: 15px; border-radius: 15px; margin-top: 15px; border: 1px solid #ffccbc; }
+    .slider-label { display: flex; justify-content: space-between; font-size: 11px; color: #e64a19; font-weight: bold; }
+    input[type="range"] { width: 100%; margin: 8px 0 18px 0; cursor: pointer; }
     optgroup { font-style: normal; font-weight: bold; color: #e64a19; }
+    .status-area { font-size: 10px; color: #bcaaa4; text-align: center; margin-top: 10px; min-height: 1.2em; }
   </style>
 </head>
 <body>
@@ -55,7 +57,7 @@
       </optgroup>
     </select>
 
-    <label>お題・キーワード（名前など）</label>
+    <label>お題・キーワード</label>
     <input type="text" id="keyword" placeholder="例: フジカワ、今日からおれは" />
 
     <button id="generateBtn" onclick="startGeneration()">ギャグを爆誕させる！</button>
@@ -67,18 +69,15 @@
       <div id="gagAction" style="margin:15px 0; font-size:15px; background:white; padding:15px; border-radius:10px; border-left:5px solid #ff7043; color: #4e342e;"></div>
       <div id="gagLines" class="lines-box"></div>
 
-      <!-- 🔊 カスタムボイス設定 -->
-      <div class="voice-settings">
-        <label style="margin-top:0; color:#d84315; font-size:11px;">🗣 声の種類を選択</label>
-        <select id="voiceSelect" style="padding:10px; font-size:14px; margin-bottom:8px; border-radius:10px;"></select>
-        
-        <label style="margin-top:5px; color:#d84315; font-size:11px;">👂 声の高さ（キャラ付け）</label>
-        <select id="pitchSelect" style="padding:10px; font-size:14px; margin-bottom:0; border-radius:10px;">
-          <option value="0.5">渋い声（低）</option>
-          <option value="1.0" selected>標準</option>
-          <option value="1.5">高めの声</option>
-          <option value="2.0">ヘリウムガス風（超高）</option>
-        </select>
+      <div class="setting-group">
+        <label style="margin-top:0; color:#d84315;">🗣 声の選択</label>
+        <select id="voiceSelect" style="padding:10px; font-size:14px; margin-bottom:15px;"></select>
+
+        <div class="slider-label"><span>🐢 話すスピード</span><span id="speedVal">1.2</span></div>
+        <input type="range" id="rateRange" min="0.5" max="2.0" step="0.1" value="1.2" oninput="document.getElementById('speedVal').textContent=this.value">
+
+        <div class="slider-label"><span>📉 声の高さ</span><span id="pitchVal">1.0</span></div>
+        <input type="range" id="pitchRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('pitchVal').textContent=this.value">
       </div>
 
       <button class="speaker-btn" onclick="speak()">🔊 スマホに喋らせる</button>
@@ -90,15 +89,13 @@
     let currentText = '';
     let voices = [];
 
-    // 音声リストの初期化
+    // 音声リスト取得
     function populateVoiceList() {
       voices = window.speechSynthesis.getVoices();
       const voiceSelect = document.getElementById('voiceSelect');
       if (!voiceSelect) return;
-
       voiceSelect.innerHTML = '';
       const jpVoices = voices.filter(v => v.lang.includes('ja'));
-      
       if (jpVoices.length === 0) {
         const option = document.createElement('option');
         option.textContent = "標準ボイス";
@@ -112,11 +109,8 @@
         });
       }
     }
-
+    window.speechSynthesis.onvoiceschanged = populateVoiceList;
     populateVoiceList();
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-      speechSynthesis.onvoiceschanged = populateVoiceList;
-    }
 
     async function startGeneration() {
       const key = document.getElementById('apiKey').value.trim();
@@ -130,7 +124,7 @@
       btn.disabled = true;
       btn.textContent = "AI思考中...";
       resBox.style.display = "none";
-      status.textContent = "接続可能なモデルを探索しています...";
+      status.textContent = "最適なモデルを探索しています...";
 
       try {
         const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
@@ -146,7 +140,7 @@
           models = [ {name: lastModel}, ...models.filter(m => m.name !== lastModel) ];
         }
 
-        const prompt = `あなたはプロのお笑い芸人です。シチュエーション「${document.getElementById('situation').value}」、お題「${document.getElementById('keyword').value || 'なし'}」で一発ギャグを1つ作って。必ず以下のJSON形式でのみ答えて。{"title":"題名","action":"動き","lines":"台詞"}`;
+        const prompt = `一発ギャグを1つ作って。以下のJSON形式でのみ答えて。{"title":"題名","action":"動き","lines":"台詞"}\n条件: シチュエーション「${document.getElementById('situation').value}」、お題「${document.getElementById('keyword').value || 'なし'}」`;
 
         let success = false;
         for (const m of models) {
@@ -169,14 +163,14 @@
               document.getElementById('gagAction').textContent = `やり方: ${gag.action}`;
               document.getElementById('gagLines').textContent = `『 ${gag.lines} 』`;
               resBox.style.display = "block";
-              status.textContent = "ギャグが完成しました！";
+              status.textContent = "成功しました！";
               localStorage.setItem('last_working_model', m.name);
               success = true;
               break;
             }
           } catch (e) { continue; }
         }
-        if (!success) alert("現在制限がかかっています。");
+        if (!success) alert("制限がかかっています。時間を置いてください。");
       } catch (e) {
         alert("エラーが発生しました。");
       } finally {
@@ -188,19 +182,15 @@
     function speak() {
       if(!currentText) return;
       window.speechSynthesis.cancel();
-
       const u = new SpeechSynthesisUtterance(currentText);
       const voiceSelect = document.getElementById('voiceSelect');
       const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
-      
       if (selectedVoiceName) {
         u.voice = voices.find(v => v.name === selectedVoiceName);
       }
-
       u.lang = 'ja-JP';
-      u.rate = 1.4; // 1.4倍速
-      u.pitch = parseFloat(document.getElementById('pitchSelect').value);
-      
+      u.rate = parseFloat(document.getElementById('rateRange').value);
+      u.pitch = parseFloat(document.getElementById('pitchRange').value);
       window.speechSynthesis.speak(u);
     }
   </script>
