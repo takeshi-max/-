@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI一発ギャグMaker 🎤 究極完全版</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff8e1; margin: 0; padding: 20px; color: #2c3e50; }
+    .card { background: white; padding: 24px; border-radius: 24px; box-shadow: 0 12px 30px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; border: 4px solid #ffccbc; }
+    h1 { font-size: 24px; text-align: center; color: #e64a19; margin-bottom: 20px; }
+    label { font-size: 13px; font-weight: bold; color: #8d6e63; display: block; margin-top: 15px; margin-bottom: 5px; }
+    input, select { width: 100%; padding: 14px; margin-bottom: 10px; border-radius: 14px; border: 2px solid #ffccbc; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.2s; background: #fff; }
+    input:focus, select:focus { border-color: #e64a19; }
+    button { width: 100%; padding: 18px; background: #ff7043; color: white; border: none; border-radius: 16px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #d84315; transition: 0.1s; margin-top: 10px; }
+    button:active { transform: translateY(4px); box-shadow: none; }
+    button:disabled { background: #bdbdbd; box-shadow: none; cursor: not-allowed; }
+    .result-box { background: #fffde7; border: 3px dashed #ffab91; border-radius: 20px; padding: 25px; margin-top: 25px; display: none; animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .lines-box { font-size: 26px; font-weight: bold; text-align: center; color: #bf360c; padding: 20px; background: #ffe0b2; border-radius: 14px; margin: 15px 0; line-height: 1.4; }
+    .speaker-btn { background: #039be5; box-shadow: 0 5px 0 #01579b; font-size: 18px; }
+    .status-area { font-size: 11px; color: #bcaaa4; text-align: center; margin-top: 15px; min-height: 1.2em; }
+    .voice-settings { background: #fbe9e7; padding: 12px; border-radius: 16px; margin: 15px 0; border: 1px solid #ffccbc; }
+    optgroup { font-style: normal; font-weight: bold; color: #e64a19; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>🎤 AI一発ギャグMaker</h1>
+    
+    <label>Google APIキー</label>
+    <input type="password" id="apiKey" placeholder="キーを貼り付け" />
+
+    <label>シチュエーション（どこでやる？）</label>
+    <select id="situation">
+      <optgroup label="パーティー・飲み会">
+        <option value="忘年会・新年会">忘年会・新年会</option>
+        <option value="合コン・婚活パーティー">合コン・婚活パーティー</option>
+        <option value="結婚式の余興">結婚式の余興</option>
+        <option value="女子会・男子会">女子会・男子会</option>
+      </optgroup>
+      <optgroup label="ビジネス・学校">
+        <option value="自己紹介の場" selected>自己紹介の場</option>
+        <option value="プレゼンの冒頭（アイスブレイク）">プレゼンの冒頭</option>
+        <option value="オフィス（静かな仕事中）">オフィス（仕事中）</option>
+        <option value="学校の休み時間">学校の休み時間</option>
+      </optgroup>
+      <optgroup label="日常・ピンチ">
+        <option value="気まずい沈黙の瞬間">気まずい沈黙の瞬間</option>
+        <option value="怒られている最中">怒られている最中</option>
+        <option value="デートの別れ際">デートの別れ際</option>
+        <option value="コンビニのレジ前">コンビニのレジ前</option>
+        <option value="歯医者さんの待合室">歯医者さんの待合室</option>
+        <option value="家族団らん中">家族団らん中</option>
+      </optgroup>
+    </select>
+
+    <label>お題・キーワード（名前など）</label>
+    <input type="text" id="keyword" placeholder="例: フジカワ、今日からおれは" />
+
+    <button id="generateBtn" onclick="startGeneration()">ギャグを爆誕させる！</button>
+    
+    <div id="status" class="status-area"></div>
+
+    <div id="resultBox" class="result-box">
+      <div id="gagTitle" style="font-weight:bold; color:#e64a19; text-align:center; font-size:1.4em;"></div>
+      <div id="gagAction" style="margin:15px 0; font-size:15px; background:white; padding:15px; border-radius:10px; border-left:5px solid #ff7043; color: #4e342e;"></div>
+      <div id="gagLines" class="lines-box"></div>
+
+      <!-- 🔊 カスタムボイス設定 -->
+      <div class="voice-settings">
+        <label style="margin-top:0; color:#d84315; font-size:11px;">🗣 声の種類を選択</label>
+        <select id="voiceSelect" style="padding:10px; font-size:14px; margin-bottom:8px; border-radius:10px;"></select>
+        
+        <label style="margin-top:5px; color:#d84315; font-size:11px;">👂 声の高さ（キャラ付け）</label>
+        <select id="pitchSelect" style="padding:10px; font-size:14px; margin-bottom:0; border-radius:10px;">
+          <option value="0.5">渋い声（低）</option>
+          <option value="1.0" selected>標準</option>
+          <option value="1.5">高めの声</option>
+          <option value="2.0">ヘリウムガス風（超高）</option>
+        </select>
+      </div>
+
+      <button class="speaker-btn" onclick="speak()">🔊 スマホに喋らせる</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('apiKey').value = localStorage.getItem('gemini_api_key') || '';
+    let currentText = '';
+    let voices = [];
+
+    // 音声リストの初期化
+    function populateVoiceList() {
+      voices = window.speechSynthesis.getVoices();
+      const voiceSelect = document.getElementById('voiceSelect');
+      if (!voiceSelect) return;
+
+      voiceSelect.innerHTML = '';
+      const jpVoices = voices.filter(v => v.lang.includes('ja'));
+      
+      if (jpVoices.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = "標準ボイス";
+        voiceSelect.appendChild(option);
+      } else {
+        jpVoices.forEach(voice => {
+          const option = document.createElement('option');
+          option.textContent = voice.name;
+          option.setAttribute('data-name', voice.name);
+          voiceSelect.appendChild(option);
+        });
+      }
+    }
+
+    populateVoiceList();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+
+    async function startGeneration() {
+      const key = document.getElementById('apiKey').value.trim();
+      if(!key) return alert("APIキーを入力してください");
+      localStorage.setItem('gemini_api_key', key);
+
+      const btn = document.getElementById('generateBtn');
+      const resBox = document.getElementById('resultBox');
+      const status = document.getElementById('status');
+      
+      btn.disabled = true;
+      btn.textContent = "AI思考中...";
+      resBox.style.display = "none";
+      status.textContent = "接続可能なモデルを探索しています...";
+
+      try {
+        const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        const mData = await mRes.json();
+        if(!mRes.ok) throw new Error("通信失敗");
+
+        let models = mData.models
+          .filter(m => m.supportedGenerationMethods.includes("generateContent"))
+          .sort((a, b) => b.name.localeCompare(a.name));
+
+        const lastModel = localStorage.getItem('last_working_model');
+        if (lastModel) {
+          models = [ {name: lastModel}, ...models.filter(m => m.name !== lastModel) ];
+        }
+
+        const prompt = `あなたはプロのお笑い芸人です。シチュエーション「${document.getElementById('situation').value}」、お題「${document.getElementById('keyword').value || 'なし'}」で一発ギャグを1つ作って。必ず以下のJSON形式でのみ答えて。{"title":"題名","action":"動き","lines":"台詞"}`;
+
+        let success = false;
+        for (const m of models) {
+          status.textContent = `試行中: ${m.name.split('/').pop()}...`;
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/${m.name}:generateContent?key=${key}`;
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json" }
+              })
+            });
+            const data = await response.json();
+            if (response.ok) {
+              const gag = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim());
+              currentText = gag.lines;
+              document.getElementById('gagTitle').textContent = `「 ${gag.title} 」`;
+              document.getElementById('gagAction').textContent = `やり方: ${gag.action}`;
+              document.getElementById('gagLines').textContent = `『 ${gag.lines} 』`;
+              resBox.style.display = "block";
+              status.textContent = "ギャグが完成しました！";
+              localStorage.setItem('last_working_model', m.name);
+              success = true;
+              break;
+            }
+          } catch (e) { continue; }
+        }
+        if (!success) alert("現在制限がかかっています。");
+      } catch (e) {
+        alert("エラーが発生しました。");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "ギャグを爆誕させる！";
+      }
+    }
+
+    function speak() {
+      if(!currentText) return;
+      window.speechSynthesis.cancel();
+
+      const u = new SpeechSynthesisUtterance(currentText);
+      const voiceSelect = document.getElementById('voiceSelect');
+      const selectedVoiceName = voiceSelect.selectedOptions[0]?.getAttribute('data-name');
+      
+      if (selectedVoiceName) {
+        u.voice = voices.find(v => v.name === selectedVoiceName);
+      }
+
+      u.lang = 'ja-JP';
+      u.rate = 1.4; // 1.4倍速
+      u.pitch = parseFloat(document.getElementById('pitchSelect').value);
+      
+      window.speechSynthesis.speak(u);
+    }
+  </script>
+</body>
+</html>
