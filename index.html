@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI一発ギャグMaker 🎤 究極完成版</title>
+  <title>AI一発ギャグMaker 🎤 究極版</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff8e1; margin: 0; padding: 20px; color: #2c3e50; -webkit-tap-highlight-color: transparent; }
     .card { background: white; padding: 24px; border-radius: 24px; box-shadow: 0 12px 30px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; border: 4px solid #ffccbc; }
@@ -12,23 +12,17 @@
     input, select { width: 100%; padding: 14px; margin-bottom: 10px; border-radius: 14px; border: 2px solid #ffccbc; box-sizing: border-box; font-size: 16px; outline: none; transition: 0.2s; background: #fff; appearance: none; }
     input:focus, select:focus { border-color: #e64a19; }
     button { width: 100%; padding: 18px; background: #ff7043; color: white; border: none; border-radius: 16px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #d84315; transition: 0.1s; margin-top: 10px; }
-    button:active { transform: translateY(4px); box-shadow: none; background: #f4511e; }
+    button:active { transform: translateY(4px); box-shadow: none; }
     button:disabled { background: #bdbdbd; box-shadow: none; cursor: not-allowed; }
-    
     .result-box { background: #fffde7; border: 3px dashed #ffab91; border-radius: 20px; padding: 25px; margin-top: 25px; display: none; animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    
     .lines-box { font-size: 26px; font-weight: bold; text-align: center; color: #bf360c; padding: 20px; background: #ffe0b2; border-radius: 14px; margin: 15px 0; line-height: 1.4; }
     .speaker-btn { background: #039be5; box-shadow: 0 5px 0 #01579b; font-size: 18px; }
-    
     .setting-group { background: #fbe9e7; padding: 15px; border-radius: 15px; margin-top: 15px; border: 1px solid #ffccbc; }
     .slider-label { display: flex; justify-content: space-between; font-size: 11px; color: #e64a19; font-weight: bold; }
     input[type="range"] { width: 100%; margin: 8px 0 18px 0; cursor: pointer; }
     optgroup { font-style: normal; font-weight: bold; color: #e64a19; }
-
-    /* リスト更新ボタンを大きく押しやすく修正 */
-    .refresh-voice-btn { background: #ffe0b2; color: #e65100; font-size: 12px; padding: 8px 12px; border-radius: 10px; border: 1px solid #ffb74d; cursor: pointer; font-weight: bold; transition: 0.2s; }
-    .refresh-voice-btn:active { background: #ffb74d; transform: scale(0.95); }
+    .test-btn { background: #eee; color: #666; font-size: 11px; padding: 6px 12px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; width: auto; box-shadow: none; display: inline-block; }
   </style>
 </head>
 <body>
@@ -39,7 +33,7 @@
     <label>Google APIキー</label>
     <input type="password" id="apiKey" placeholder="キーを貼り付け" />
 
-    <label>シチュエーション</label>
+    <label>シチュエーション（どこでやる？）</label>
     <select id="situation">
       <optgroup label="パーティー・飲み会">
         <option value="忘年会・新年会">忘年会・新年会</option>
@@ -64,7 +58,7 @@
     </select>
 
     <label>お題・キーワード</label>
-    <input type="text" id="keyword" placeholder="例: フジカワ、今日からおれは" />
+    <input type="text" id="keyword" placeholder="例: フジカワ、斎藤です" />
 
     <button id="generateBtn" onclick="startGeneration()">ギャグを爆誕させる！</button>
     
@@ -78,9 +72,9 @@
       <div class="setting-group">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <label style="margin:0; color:#d84315;">🗣 声の選択</label>
-            <button class="refresh-voice-btn" onclick="manualRefreshVoices()">🔄 リスト更新</button>
+            <button class="test-btn" onclick="testVoice()">🔊 声をテスト</button>
         </div>
-        <select id="voiceSelect" style="padding:12px; font-size:14px; margin-bottom:15px;"></select>
+        <select id="voiceSelect" onchange="testVoice()"></select>
 
         <div class="slider-label"><span>🐢 話すスピード</span><span id="speedVal">1.2</span></div>
         <input type="range" id="rateRange" min="0.5" max="2.0" step="0.1" value="1.2" oninput="document.getElementById('speedVal').textContent=this.value">
@@ -89,67 +83,55 @@
         <input type="range" id="pitchRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('pitchVal').textContent=this.value">
       </div>
 
-      <button class="speaker-btn" onclick="speak()">🔊 スマホに喋らせる</button>
+      <button class="speaker-btn" onclick="speakGag()">🔊 ギャグを喋らせる</button>
     </div>
   </div>
 
   <script>
     document.getElementById('apiKey').value = localStorage.getItem('gemini_api_key') || '';
-    let currentText = '';
+    let currentGagText = '';
     let voices = [];
 
-    // 声のリストを取得する関数
-    function populateVoiceList() {
-      const synth = window.speechSynthesis;
-      voices = synth.getVoices();
+    // iPhone用：声のリスト取得と更新
+    function populateVoices() {
+      window.speechSynthesis.cancel();
+      voices = window.speechSynthesis.getVoices();
       const select = document.getElementById('voiceSelect');
-      if (!select) return;
-
-      const currentSelection = select.value;
-      select.innerHTML = '';
+      if(!select) return;
       
+      const current = select.value;
+      select.innerHTML = '';
       const jpVoices = voices.filter(v => v.lang.includes('ja'));
       
-      if (jpVoices.length === 0) {
-        select.innerHTML = '<option>標準ボイス（読み込み中...）</option>';
+      if(jpVoices.length === 0) {
+        select.innerHTML = '<option>標準ボイス (Kyoko)</option>';
       } else {
         jpVoices.forEach(v => {
           const opt = document.createElement('option');
-          opt.textContent = v.name.replace('Samantha','').replace('Compact','(標準)');
+          opt.textContent = v.name.replace('Samantha','').replace('Compact','');
           opt.value = v.name;
-          if(v.name === currentSelection) opt.selected = true;
+          if(v.name === current) opt.selected = true;
           select.appendChild(opt);
         });
       }
     }
 
-    // iPhoneでリストを更新するための「目覚まし」関数
-    function manualRefreshVoices() {
-      const btn = document.querySelector('.refresh-voice-btn');
-      btn.textContent = "更新中...";
-      
-      // 無音のスピーチを一瞬だけ実行して音声エンジンを叩き起こす
-      const uttr = new SpeechSynthesisUtterance("");
-      uttr.volume = 0;
-      window.speechSynthesis.speak(uttr);
-      
-      // 少し遅れてリストを取得
-      setTimeout(() => {
-        populateVoiceList();
-        btn.textContent = "🔄 リスト更新";
-        if (voices.filter(v => v.lang.includes('ja')).length === 0) {
-          alert("日本語の声が見つかりません。iPhoneの設定を確認してください。");
-        }
-      }, 500);
-    }
+    // iPhone/Safari対策：しつこく読み込み＆ユーザー操作時に更新
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+    window.onload = populateVoices;
+    window.addEventListener('touchstart', () => { if(voices.length < 2) populateVoices(); }, {once: true});
 
-    // 初期化処理
-    window.speechSynthesis.onvoiceschanged = populateVoiceList;
-    window.onload = () => {
-      populateVoiceList();
-      // iPhone対策：数秒おきに数回自動更新を試みる
-      for(let i=1; i<=3; i++) setTimeout(populateVoiceList, i * 1000);
-    };
+    function testVoice() {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance("テスト再生です。");
+      const vName = document.getElementById('voiceSelect').value;
+      const v = voices.find(v => v.name === vName);
+      if(v) u.voice = v;
+      u.lang = 'ja-JP';
+      u.rate = parseFloat(document.getElementById('rateRange').value);
+      u.pitch = parseFloat(document.getElementById('pitchRange').value);
+      window.speechSynthesis.speak(u);
+    }
 
     async function startGeneration() {
       const key = document.getElementById('apiKey').value.trim();
@@ -168,13 +150,13 @@
       try {
         const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
         const mData = await mRes.json();
-        if(!mRes.ok) throw new Error("APIエラー");
+        if(!mRes.ok) throw new Error("API接続失敗");
 
         const models = mData.models
           .filter(m => m.supportedGenerationMethods.includes("generateContent"))
           .sort((a, b) => b.name.localeCompare(a.name));
 
-        const prompt = `あなたはプロのお笑い芸人です。シチュエーション「${document.getElementById('situation').value}」、お題「${document.getElementById('keyword').value || 'なし'}」で一発ギャグを1つ作って。必ず以下のJSON形式でのみ答えて。{"title":"題名","action":"動き","lines":"台詞"}`;
+        const prompt = `一発ギャグを作って。必ずJSON形式{"title":"題名","action":"動き","lines":"台詞"}のみで答えて。条件:シチュエーション「${document.getElementById('situation').value}」、お題「${document.getElementById('keyword').value || 'なし'}」`;
 
         let success = false;
         for (const m of models) {
@@ -188,27 +170,31 @@
             });
             const data = await response.json();
             if (response.ok) {
-              const gag = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim());
-              currentText = gag.lines;
+              const text = data.candidates[0].content.parts[0].text;
+              const gag = JSON.parse(text.replace(/```json|```/g, "").trim());
+              currentGagText = gag.lines;
               document.getElementById('gagTitle').textContent = `「 ${gag.title} 」`;
               document.getElementById('gagAction').textContent = `やり方: ${gag.action}`;
               document.getElementById('gagLines').textContent = `『 ${gag.lines} 』`;
               resBox.style.display = "block";
-              status.textContent = "ギャグが爆誕しました！";
+              status.textContent = "成功しました！";
               success = true;
               break;
             }
           } catch (e) { continue; }
         }
         if (!success) alert("制限がかかっています。時間を置いてください。");
-      } catch (e) { alert("エラーが発生しました。"); }
-      finally { btn.disabled = false; btn.textContent = "ギャグを爆誕させる！"; }
+      } catch (e) { alert("生成に失敗しました。"); }
+      finally {
+        btn.disabled = false;
+        btn.textContent = "ギャグを爆誕させる！";
+      }
     }
 
-    function speak() {
-      if(!currentText) return;
+    function speakGag() {
+      if(!currentGagText) return;
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(currentText);
+      const u = new SpeechSynthesisUtterance(currentGagText);
       const vName = document.getElementById('voiceSelect').value;
       const v = voices.find(v => v.name === vName);
       if(v) u.voice = v;
